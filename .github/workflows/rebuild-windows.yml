@@ -1,0 +1,108 @@
+# =============================================================
+# zhiyong7253 远程控制 — Windows 客户端编译
+# =============================================================
+name: 🔧 Build zhiyong7253 Remote (Windows)
+
+on:
+  workflow_dispatch:
+  # 也可以 push 时自动触发，但先保持手动
+
+env:
+  NEW_APP_NAME: "zhiyong7253"
+  ID_SERVER: "www.zhiyong7253.vip"
+  RELAY_SERVER: "www.zhiyong7253.vip"
+  SERVER_KEY: "Xzy860329"
+
+jobs:
+  build:
+    name: Build Windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: 📥 检出源码
+        uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: master
+          submodules: recursive
+          fetch-depth: 1
+
+      # ===== 品牌修改 =====
+      - name: 🏷️ 改应用名称 & 配置服务器
+        shell: bash
+        run: |
+          CFG="libs/hbb_common/src/config.rs"
+          # APP_NAME
+          sed -i 's|pub static ref APP_NAME: RwLock<String> = RwLock::new("RustDesk".to_owned());|pub static ref APP_NAME: RwLock<String> = RwLock::new("'"${NEW_APP_NAME}"'".to_owned());|' "$CFG"
+          # Server
+          sed -i 's|pub const RENDEZVOUS_SERVERS: &\[&str\] = &\["rs-ny.rustdesk.com"\];|pub const RENDEZVOUS_SERVERS: \&[&str] = \&["'"${ID_SERVER}"'"];|' "$CFG"
+          sed -i 's|pub const RS_PUB_KEY: \&str = ".*";|pub const RS_PUB_KEY: \&str = "'"${SERVER_KEY}"'";|' "$CFG"
+          echo "APP_NAME -> ${NEW_APP_NAME}"
+          echo "Server -> ${ID_SERVER}"
+
+      # ===== 安装 Rust =====
+      - name: 🦀 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.75
+          targets: x86_64-pc-windows-msvc
+
+      - name: 📦 安装 Sciter SDK
+        shell: bash
+        run: |
+          mkdir -p target/sciter
+          cd target/sciter
+          curl -LO https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin/windows/x64/sciter.dll
+          echo "Sciter SDK installed"
+
+      # ===== 编译 =====
+      - name: 🏗️ 编译
+        shell: bash
+        run: |
+          cargo build --release --features flutter
+          echo "Build complete"
+
+      # ===== 打包 =====
+      - name: 📦 打包
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/release/rustdesk.exe dist/zhiyong7253-remote.exe
+          # Create launcher with pre-configured server
+          cat > dist/start.bat << 'BAT'
+          @echo off
+          chcp 65001 >nul
+          title zhiyong7253 Remote
+          echo ========================================
+          echo    zhiyong7253 Remote v1.4.6  Windows
+          echo ========================================
+          echo.
+          echo 正在配置服务器信息...
+          set "APPDATA_DIR=%APPDATA%\RustDesk\config"
+          if not exist "%APPDATA_DIR%" mkdir "%APPDATA_DIR%"
+          (
+          echo [options]
+          echo rendezvous_server = "www.zhiyong7253.vip"
+          echo relay_server = "www.zhiyong7253.vip"
+          echo key = "Xzy860329"
+          echo.
+          echo [client]
+          echo auto_start = false
+          echo hide_settings = false
+          ) > "%APPDATA_DIR%\RustDesk2.toml"
+          echo [OK] 服务器配置已写入
+          echo    ID: www.zhiyong7253.vip
+          echo    Key: Xzy860329
+          echo.
+          start "" "%~dp0zhiyong7253-remote.exe"
+          BAT
+          
+          echo "Packaged"
+
+      - name: 📤 上传
+        uses: actions/upload-artifact@v4
+        with:
+          name: zhiyong7253-remote-windows
+          path: dist/
+          compression-level: 0

@@ -112,29 +112,21 @@ jobs:
 
       - name: Setup Android SDK
         run: |
-          # Manual SDK setup (more reliable than setup-android action)
-          mkdir -p $ANDROID_HOME
-          if [ ! -d "$ANDROID_SDK_ROOT" ]; then
-            echo "ANDROID_SDK_ROOT not set, setting up manually"
-            export ANDROID_SDK_ROOT=$HOME/android-sdk
-            mkdir -p $ANDROID_SDK_ROOT
-            # Link to cmdline-tools
-            mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-            # Download sdkmanager via commandlinetools
-            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-            unzip -q commandlinetools-linux-11076708_latest.zip -d $ANDROID_SDK_ROOT/cmdline-tools/
-            mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
-            export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-            # Accept licenses
-            yes | sdkmanager --licenses > /dev/null 2>&1 || true
-            # Install needed packages
-            sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;28.0.13004108" "cmake;3.22.1" > /dev/null 2>&1 || true
-            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-            echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          fi
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          ls -la $ANDROID_SDK_ROOT/ 2>/dev/null || echo "SDK root check"
-          echo "Android SDK setup complete"
+          # Use pre-installed Android SDK on GitHub Actions runner
+          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/28.0.13004108
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/tools/bin" >> $GITHUB_PATH
+          echo "SDK root: $ANDROID_SDK_ROOT"
+          ls $ANDROID_SDK_ROOT/ 2>/dev/null || echo "Check SDK"
+          # Accept licenses
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          echo "Android SDK ready"
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable

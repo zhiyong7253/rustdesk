@@ -1,42 +1,34 @@
 # =============================================================
-# zhiyong7253 远程控制 — RustDesk 源码编译工作流
-# 
-# 1. Fork https://github.com/rustdesk/rustdesk 到你的 GitHub
-# 2. 把本文件放到 .github/workflows/rebuild.yml
-# 3. 在 GitHub → Actions 里手动触发
-# 4. 约 1.5 小时后下载 APK
+# zhiyong7253 Remote — RustDesk 源码编译工作流 (Android)
 # =============================================================
-name: 🔧 Build zhiyong7253 Remote
+name: Build zhiyong7253 Remote
 
 on:
   workflow_dispatch:
     inputs:
       arch:
-        description: 'CPU 架构'
+        description: CPU architecture
         type: choice
         options:
-          - arm64-v8a   # ✅ 红米 K50 / 大部分新手机
-          - armeabi-v7a # 旧手机
-        default: 'arm64-v8a'
+          - arm64-v8a
+          - armeabi-v7a
+        default: arm64-v8a
 
 env:
-  # ═══════ 品牌配置 ═══════
   NEW_PACKAGE: "com.zhiyong7253.remote"
   NEW_APP_NAME: "zhiyong7253"
-
-  # ═══════ 服务器配置 ═══════
   ID_SERVER: "www.zhiyong7253.vip"
   RELAY_SERVER: "www.zhiyong7253.vip"
   SERVER_KEY: "Xzy860329"
 
 jobs:
   build:
-    name: 编译 APK (${{ inputs.arch }})
+    name: Build APK (${{ inputs.arch }})
     runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
-      - name: 🧹 清理磁盘空间
+      - name: Free disk space
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: false
@@ -47,7 +39,7 @@ jobs:
           docker-images: true
           swap-storage: false
 
-      - name: 📥 检出源码
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
           repository: rustdesk/rustdesk
@@ -55,23 +47,15 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      # ===== 品牌修改 =====
-      - name: 🏷️ 改应用名称（Rust 侧）
+      # ===== Branding modifications =====
+      - name: Patch APP_NAME and server config (Rust side)
         run: |
           CFG="libs/hbb_common/src/config.rs"
-          echo "=== 修改 APP_NAME 常量 ==="
           sed -i 's|pub static ref APP_NAME: RwLock<String> = RwLock::new("RustDesk".to_owned());|pub static ref APP_NAME: RwLock<String> = RwLock::new("'"${NEW_APP_NAME}"'".to_owned());|' "$CFG"
-          echo "✅ APP_NAME → ${NEW_APP_NAME}"
-
-      - name: 🏷️ 配置服务器
-        run: |
-          CFG="libs/hbb_common/src/config.rs"
-          echo "=== 修改 ID/Relay 服务器 ==="
           sed -i 's|pub const RENDEZVOUS_SERVERS: &\[&str\] = &\["rs-ny.rustdesk.com"\];|pub const RENDEZVOUS_SERVERS: \&[&str] = \&["'"${ID_SERVER}"'"];|' "$CFG"
           sed -i 's|pub const RS_PUB_KEY: \&str = ".*";|pub const RS_PUB_KEY: \&str = "'"${SERVER_KEY}"'";|' "$CFG"
-          echo "✅ 服务器 → ${ID_SERVER} / ${RELAY_SERVER}"
 
-      - name: 🏷️ 修改包名（Android 侧）
+      - name: Patch package name (Android side)
         run: |
           MANIFEST="flutter/android/app/src/main/AndroidManifest.xml"
           sed -i "s|package=\"com.carriez.flutter_hbb\"|package=\"${NEW_PACKAGE}\"|g" "$MANIFEST"
@@ -79,25 +63,21 @@ jobs:
           sed -i 's|android:label="RustDesk Input"|android:label="'"${NEW_APP_NAME}"' Input"|g' "$MANIFEST"
           sed -i "s|com.carriez.flutter_hbb.DEBUG_BOOT_COMPLETED|${NEW_PACKAGE}.DEBUG_BOOT_COMPLETED|g" "$MANIFEST"
           sed -i "s|applicationId \"com.carriez.flutter_hbb\"|applicationId \"${NEW_PACKAGE}\"|g" flutter/android/app/build.gradle
-          echo "✅ 包名 → ${NEW_PACKAGE}"
 
-      - name: 🏷️ 全局替换 Dart 中的 "RustDesk"
+      - name: Replace "RustDesk" in Dart files
         run: |
           find flutter/lib -name "*.dart" -exec sed -i "s|\"RustDesk\"|\"${NEW_APP_NAME}\"|g" {} +
-          echo "✅ Dart 中的 RustDesk → ${NEW_APP_NAME}"
 
-      - name: 🏷️ 全局替换包名引用
+      - name: Replace package references
         run: |
           find libs/ -name "*.rs" -exec sed -i "s|com\.carriez\.flutter_hbb|${NEW_PACKAGE}|g" {} + 2>/dev/null || true
           find . -type f \( -name "*.xml" -o -name "*.gradle" -o -name "*.properties" \) \
             -not -path "*/build/*" -not -path "*/.git/*" \
             -exec sed -i "s|com\.carriez\.flutter_hbb|${NEW_PACKAGE}|g" {} + 2>/dev/null || true
-          echo "✅ 包名引用替换完成"
 
-      # ===== 生成图标 =====
-      - name: 🎨 生成替换图标
+      - name: Generate icons
         run: |
-          python3 << 'PYEOF'
+          python3 << 'EOF'
           import struct, zlib, os
           def make_png(size, color):
               w = h = size
@@ -120,20 +100,43 @@ jobs:
                   dp = f'flutter/android/app/src/main/res/mipmap-{d}'
                   os.makedirs(dp, exist_ok=True)
                   with open(f'{dp}/{n}', 'wb') as f: f.write(png)
-          print("✅ 图标生成完成")
-          PYEOF
+          print("Icons generated")
+          EOF
 
-      # ===== 构建阶段 =====
-      - name: ☕ 设置 Java 17
+      # ===== Build phase =====
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 📱 设置 Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        run: |
+          # Manual SDK setup (more reliable than setup-android action)
+          mkdir -p $ANDROID_HOME
+          if [ ! -d "$ANDROID_SDK_ROOT" ]; then
+            echo "ANDROID_SDK_ROOT not set, setting up manually"
+            export ANDROID_SDK_ROOT=$HOME/android-sdk
+            mkdir -p $ANDROID_SDK_ROOT
+            # Link to cmdline-tools
+            mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+            # Download sdkmanager via commandlinetools
+            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q commandlinetools-linux-11076708_latest.zip -d $ANDROID_SDK_ROOT/cmdline-tools/
+            mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+            export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+            # Accept licenses
+            yes | sdkmanager --licenses > /dev/null 2>&1 || true
+            # Install needed packages
+            sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;28.0.13004108" "cmake;3.22.1" > /dev/null 2>&1 || true
+            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+            echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          fi
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls -la $ANDROID_SDK_ROOT/ 2>/dev/null || echo "SDK root check"
+          echo "Android SDK setup complete"
 
-      - name: 🦀 安装 Rust 工具链
+      - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.75
@@ -141,20 +144,20 @@ jobs:
             aarch64-linux-android
             armv7-linux-androideabi
 
-      - name: 📦 安装 cargo-ndk
+      - name: Install cargo-ndk
         run: cargo install cargo-ndk --version 3.1.2 --locked
 
-      - name: 🎯 安装 Flutter
+      - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           flutter-version: '3.24.5'
 
-      - name: 📦 Flutter 安装依赖
+      - name: Flutter pub get
         working-directory: flutter
         run: flutter pub get
 
-      - name: 🏗️ 编译 Rust 原生库
+      - name: Compile Rust native library
         run: |
           if [ "${{ inputs.arch }}" = "arm64-v8a" ]; then
             TARGET="aarch64-linux-android"
@@ -169,17 +172,15 @@ jobs:
           mkdir -p "flutter/android/app/src/main/jniLibs/${ABI}"
           cp "target/${TARGET}/release/liblibrustdesk.so" \
             "flutter/android/app/src/main/jniLibs/${ABI}/librustdesk.so"
-          echo "✅ Rust 库编译完成"
 
-      - name: 📦 编译 APK
+      - name: Build APK
         working-directory: flutter
         run: |
           flutter build apk --release \
             --build-number=1 --build-name="1.4.6" \
             --target-platform android-arm64
-          echo "✅ APK 编译完成"
 
-      - name: 📤 上传 APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: zhiyong7253-remote-${{ inputs.arch }}.apk
@@ -187,18 +188,13 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
-      - name: 📋 构建摘要
+      - name: Build summary
         run: |
-          echo "## ✅ zhiyong7253 远程控制 编译完成" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| 项目 | 值 |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
-          echo "| 架构 | ${{ inputs.arch }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 包名 | ${NEW_PACKAGE} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 应用名称 | ${NEW_APP_NAME} |" >> $GITHUB_STEP_SUMMARY
-          echo "| ID 服务器 | ${ID_SERVER} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Relay 服务器 | ${RELAY_SERVER} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📥 下载：Actions 运行完成后，在 Artifacts 里下载 APK" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📱 安装：传到手机用文件管理器安装（红米 K50 选 arm64-v8a）" >> $GITHUB_STEP_SUMMARY
+          echo "## Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Arch | ${{ inputs.arch }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | ${NEW_PACKAGE} |" >> $GITHUB_STEP_SUMMARY
+          echo "| App Name | ${NEW_APP_NAME} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ID Server | ${ID_SERVER} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Relay Server | ${RELAY_SERVER} |" >> $GITHUB_STEP_SUMMARY

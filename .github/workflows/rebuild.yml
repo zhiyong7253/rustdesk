@@ -145,6 +145,13 @@ jobs:
           channel: 'stable'
           flutter-version: '3.24.5'
 
+      - name: Setup vcpkg
+        run: |
+          git clone --depth 1 https://github.com/Microsoft/vcpkg.git $HOME/vcpkg
+          $HOME/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
+          echo "$HOME/vcpkg" >> $GITHUB_PATH
+
       - name: Flutter pub get
         working-directory: flutter
         run: flutter pub get
@@ -158,7 +165,9 @@ jobs:
             TARGET="armv7-linux-androideabi"
             ABI="armeabi-v7a"
           fi
-          bash flutter/build_android_deps.sh "${ABI}"
+          cd flutter
+          bash build_android_deps.sh "${ABI}"
+          cd ..
           cargo ndk --platform 21 --target "${TARGET}" --bindgen build \
             --locked --release --features "flutter,hwcodec"
           mkdir -p "flutter/android/app/src/main/jniLibs/${ABI}"

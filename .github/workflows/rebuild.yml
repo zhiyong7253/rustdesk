@@ -39,11 +39,11 @@ jobs:
           docker-images: true
           swap-storage: false
 
-      - name: Checkout source
+      - name: Checkout source (v1.4.6)
         uses: actions/checkout@v4
         with:
           repository: rustdesk/rustdesk
-          ref: master
+          ref: 1.4.6
           submodules: recursive
           fetch-depth: 1
 

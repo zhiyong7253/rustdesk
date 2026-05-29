@@ -42,16 +42,16 @@ jobs:
           sed -i 's|android:label="RustDesk"|android:label="'"${NEW_NAME}"'"|' out/AndroidManifest.xml
           sed -i 's|android:label="RustDesk Input"|android:label="'"${NEW_NAME}"' Input"|' out/AndroidManifest.xml
           sed -i 's|com.carriez.flutter_hbb.DEBUG_BOOT_COMPLETED|'"${NEW_PKG}"'.DEBUG_BOOT_COMPLETED|' out/AndroidManifest.xml
-          # Smali files - safe (plain text)
-          find out/ -name "*.smali" -exec sed -i 's|com/carriez/flutter_hbb|'"${NEW_PKG}"'|g' {} +
-          find out/ -name "*.smali" -exec sed -i 's|com/zhiyong7253/remote|'"${NEW_PKG}"'|g' {} +
-          # DO NOT touch XML files with sed! They are binary AXML format.
+          # Smali files - paths use SLASHES
+          find out/ -name "*.smali" -exec sed -i 's|com/carriez/flutter_hbb|com/zhiyong7253/remote|g' {} +
           # Rename package directories
-          for d in $(find out/ -type d -name "carriez" 2>/dev/null); do
-            parent=$(dirname "$d")
-            mkdir -p "$parent/zhiyong7253"
-            if [ -d "$d/flutter_hbb" ]; then
-              mv "$d/flutter_hbb" "$parent/zhiyong7253/remote"
+          mv out/smali/com/carriez out/smali/com/zhiyong7253 2>/dev/null || true
+          mv out/smali/com/zhiyong7253/flutter_hbb out/smali/com/zhiyong7253/remote 2>/dev/null || true
+          # Also check smali_classes* directories
+          for d in out/smali_classes*/; do
+            if [ -f "${d}com/carriez/flutter_hbb/BootReceiver.smali" ]; then
+              mkdir -p "${d}com/zhiyong7253/remote"
+              mv "${d}com/carriez/flutter_hbb/"* "${d}com/zhiyong7253/remote/" 2>/dev/null || true
             fi
           done
           echo "Package patched"

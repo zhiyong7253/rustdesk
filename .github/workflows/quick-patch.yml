@@ -51,28 +51,24 @@ jobs:
         run: |
           # Generate keystore
           keytool -genkey -v -keystore release.keystore -alias zhiyong -keyalg RSA -keysize 2048 -validity 10000 -storepass zhiyong -keypass zhiyong -dname "CN=zhiyong7253, O=zhiyong, C=CN"
-          # First jarsigner for v1
-          jarsigner -keystore release.keystore -storepass zhiyong -keypass zhiyong -sigalg SHA256withRSA unsigned.apk zhiyong
-          # Install Android SDK build-tools for apksigner
+          # Install Android SDK build-tools for apksigner+zipalign
           mkdir -p $HOME/android-sdk
           cd /tmp
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip -d $HOME/android-sdk/cmdline-tools/
           mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
-          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" > /dev/null 2>&1 || true
-          APKSIGNER=$(find $HOME/android-sdk -name "apksigner" -type f 2>/dev/null | head -1)
-          if [ -n "$APKSIGNER" ]; then
-            echo "Using apksigner: $APKSIGNER"
-            # Zip align
-            ZIPALIGN=$(find $HOME/android-sdk -name "zipalign" -type f 2>/dev/null | head -1)
-            if [ -n "$ZIPALIGN" ]; then
-              $ZIPALIGN -v -p 4 unsigned.apk aligned.apk 2>&1 | tail -3
-              mv aligned.apk unsigned.apk
-            fi
-            # Sign with v2+v3
-            $APKSIGNER sign --ks release.keystore --ks-pass pass:zhiyong --ks-key-alias zhiyong --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true unsigned.apk
-          fi
-          cp unsigned.apk zhiyong7253-remote-${{ inputs.arch }}.apk
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" 2>&1 | tail -3
+          SDK_DIR=$HOME/android-sdk
+          APKSIGNER=$(find $SDK_DIR -name "apksigner" -type f | head -1)
+          ZIPALIGN=$(find $SDK_DIR -name "zipalign" -type f | head -1)
+          
+          # Zipalign first (before signing!)
+          $ZIPALIGN -v -p 4 unsigned.apk aligned.apk 2>&1 | tail -2
+          
+          # Sign with apksigner (handles v1+v2+v3 automatically)
+          $APKSIGNER sign --ks release.keystore --ks-pass pass:zhiyong --ks-key-alias zhiyong aligned.apk
+          
+          cp aligned.apk zhiyong7253-remote-${{ inputs.arch }}.apk
           echo "Signing complete"
 
       - name: Upload

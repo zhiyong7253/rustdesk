@@ -1,5 +1,5 @@
 # =============================================================
-# zhiyong7253 Remote — RustDesk 源码编译工作流 (Android)
+# zhiyong7253 Remote 鈥?RustDesk 婧愮爜缂栬瘧宸ヤ綔娴?(Android)
 # =============================================================
 name: Build zhiyong7253 Remote
 
@@ -118,13 +118,21 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
           echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          # Install NDK r27 which is compatible
-          echo "y" | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973" > /dev/null 2>&1 || true
-          export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-          echo "NDK: $ANDROID_NDK_HOME"
-          ls $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/ 2>/dev/null || echo "Check NDK"
-          echo "Android SDK/NDK ready"
+          # List available NDK
+          echo "Available NDK:"
+          ls $ANDROID_SDK_ROOT/ndk/ 2>/dev/null || echo "No NDK found"
+          # Install NDK using sdkmanager (show output)
+          echo "Installing NDK..."
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973" 2>&1 || true
+          # Find NDK path
+          NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | head -1)
+          if [ -n "$NDK_PATH" ]; then
+            echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+            echo "NDK: $NDK_PATH"
+            ls $NDK_PATH/toolchains/llvm/prebuilt/
+          else
+            echo "WARNING: No NDK found!"
+          fi
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable

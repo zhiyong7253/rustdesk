@@ -112,17 +112,40 @@ jobs:
 
       - name: Setup Android SDK
         run: |
-          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          # Find Android SDK location
+          SDK_CANDIDATES="/usr/local/lib/android/sdk $ANDROID_SDK_ROOT $ANDROID_HOME $HOME/android-sdk"
+          for dir in $SDK_CANDIDATES; do
+            if [ -d "$dir" ] && [ -d "$dir/platform-tools" ]; then
+              ANDROID_SDK_ROOT="$dir"
+              break
+            fi
+          done
+          if [ -z "$ANDROID_SDK_ROOT" ]; then
+            echo "No pre-installed SDK, installing..."
+            ANDROID_SDK_ROOT=$HOME/android-sdk
+            mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+            cd /tmp
+            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q commandlinetools-linux-11076708_latest.zip -d $ANDROID_SDK_ROOT/cmdline-tools/
+            mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+          fi
+          echo "SDK at: $ANDROID_SDK_ROOT"
+          ls $ANDROID_SDK_ROOT/
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
-          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          # Install NDK r28c (same as official CI)
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;28.0.13004108"
-          NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | head -1)
-          echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
-          echo "NDK installed at: $NDK_PATH"
+          SDKMANAGER=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$ANDROID_SDK_ROOT/tools/bin/sdkmanager
+          fi
+          if [ -f "$SDKMANAGER" ]; then
+            echo "Using sdkmanager: $SDKMANAGER"
+            yes | $SDKMANAGER "ndk;28.0.13004108" || echo "NDK install may have failed"
+            NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | head -1)
+            echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+          else
+            echo "WARNING: sdkmanager not found at any location"
+          fi
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -143,15 +166,14 @@ jobs:
 
       - name: Setup vcpkg
         run: |
-          # Use the exact vcpkg commit ID that RustDesk 1.4.6 expects
           VCPKG_COMMIT_ID="120deac3062162151622ca4860575a33844ba10b"
-          git clone https://github.com/Microsoft/vcpkg.git $HOME/vcpkg
+          git clone --depth 1 https://github.com/Microsoft/vcpkg.git $HOME/vcpkg
           cd $HOME/vcpkg
+          git fetch --depth 100 origin $VCPKG_COMMIT_ID
           git checkout $VCPKG_COMMIT_ID
           ./bootstrap-vcpkg.sh -disableMetrics
           echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
           echo "$HOME/vcpkg" >> $GITHUB_PATH
-          echo "VCPKG_ROOT=$HOME/vcpkg"
 
       - name: Flutter pub get
         working-directory: flutter

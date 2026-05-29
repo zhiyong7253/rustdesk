@@ -1,11 +1,10 @@
 # =============================================================
-# zhiyong7253 远程控制 — Windows 客户端编译
-# =============================================================
-name: 🔧 Build zhiyong7253 Remote (Windows)
+# zhiyong7253 杩滅▼鎺у埗 鈥?Windows 瀹㈡埛绔紪璇?# =============================================================
+name: 馃敡 Build zhiyong7253 Remote (Windows)
 
 on:
   workflow_dispatch:
-  # 也可以 push 时自动触发，但先保持手动
+  # 涔熷彲浠?push 鏃惰嚜鍔ㄨЕ鍙戯紝浣嗗厛淇濇寔鎵嬪姩
 
 env:
   NEW_APP_NAME: "zhiyong7253"
@@ -28,27 +27,26 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      # ===== 品牌修改 =====
-      - name: 🏷️ 改应用名称 & 配置服务器
+      # ===== 鍝佺墝淇敼 =====
+      - name: Patch APP_NAME and server config (safe)
         shell: bash
         run: |
           CFG="libs/hbb_common/src/config.rs"
-          # APP_NAME
-          sed -i 's|pub static ref APP_NAME: RwLock<String> = RwLock::new("RustDesk".to_owned());|pub static ref APP_NAME: RwLock<String> = RwLock::new("'"${NEW_APP_NAME}"'".to_owned());|' "$CFG"
-          # Server
-          sed -i 's|pub const RENDEZVOUS_SERVERS: &\[&str\] = &\["rs-ny.rustdesk.com"\];|pub const RENDEZVOUS_SERVERS: \&[&str] = \&["'"${ID_SERVER}"'"];|' "$CFG"
-          sed -i 's|pub const RS_PUB_KEY: \&str = ".*";|pub const RS_PUB_KEY: \&str = "'"${SERVER_KEY}"'";|' "$CFG"
+          # APP_NAME - exact match for 1.4.6
+          sed -i 's/"RustDesk"/"'"${NEW_APP_NAME}"'"/g' "$CFG"
+          # Server - just replace the URL
+          sed -i 's/"rs-ny.rustdesk.com"/"'"${ID_SERVER}"'"/g' "$CFG"
           echo "APP_NAME -> ${NEW_APP_NAME}"
           echo "Server -> ${ID_SERVER}"
 
-      # ===== 安装 Rust =====
-      - name: 🦀 安装 Rust
+      # ===== 瀹夎 Rust =====
+      - name: 馃 瀹夎 Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.75
           targets: x86_64-pc-windows-msvc
 
-      - name: 📦 安装 Sciter SDK
+      - name: 馃摝 瀹夎 Sciter SDK
         shell: bash
         run: |
           mkdir -p target/sciter
@@ -56,15 +54,15 @@ jobs:
           curl -LO https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin/windows/x64/sciter.dll
           echo "Sciter SDK installed"
 
-      # ===== 编译 =====
-      - name: 🏗️ 编译
+      # ===== 缂栬瘧 =====
+      - name: 馃彈锔?缂栬瘧
         shell: bash
         run: |
           cargo build --release --features flutter
           echo "Build complete"
 
-      # ===== 打包 =====
-      - name: 📦 打包
+      # ===== 鎵撳寘 =====
+      - name: 馃摝 鎵撳寘
         shell: bash
         run: |
           mkdir -p dist
@@ -78,7 +76,7 @@ jobs:
           echo    zhiyong7253 Remote v1.4.6  Windows
           echo ========================================
           echo.
-          echo 正在配置服务器信息...
+          echo 姝ｅ湪閰嶇疆鏈嶅姟鍣ㄤ俊鎭?..
           set "APPDATA_DIR=%APPDATA%\RustDesk\config"
           if not exist "%APPDATA_DIR%" mkdir "%APPDATA_DIR%"
           (
@@ -91,7 +89,7 @@ jobs:
           echo auto_start = false
           echo hide_settings = false
           ) > "%APPDATA_DIR%\RustDesk2.toml"
-          echo [OK] 服务器配置已写入
+          echo [OK] 鏈嶅姟鍣ㄩ厤缃凡鍐欏叆
           echo    ID: www.zhiyong7253.vip
           echo    Key: Xzy860329
           echo.
@@ -100,7 +98,7 @@ jobs:
           
           echo "Packaged"
 
-      - name: 📤 上传
+      - name: 馃摛 涓婁紶
         uses: actions/upload-artifact@v4
         with:
           name: zhiyong7253-remote-windows

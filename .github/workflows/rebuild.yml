@@ -51,9 +51,10 @@ jobs:
       - name: Patch APP_NAME and server config (Rust side)
         run: |
           CFG="libs/hbb_common/src/config.rs"
-          sed -i 's|pub static ref APP_NAME: RwLock<String> = RwLock::new("RustDesk".to_owned());|pub static ref APP_NAME: RwLock<String> = RwLock::new("'"${NEW_APP_NAME}"'".to_owned());|' "$CFG"
-          sed -i 's|pub const RENDEZVOUS_SERVERS: &\[&str\] = &\["rs-ny.rustdesk.com"\];|pub const RENDEZVOUS_SERVERS: \&[&str] = \&["'"${ID_SERVER}"'"];|' "$CFG"
-          sed -i 's|pub const RS_PUB_KEY: \&str = ".*";|pub const RS_PUB_KEY: \&str = "'"${SERVER_KEY}"'";|' "$CFG"
+          # Safe replacements - only change string literals
+          sed -i 's/"RustDesk"/"'"${NEW_APP_NAME}"'"/g' "$CFG"
+          sed -i 's/"rs-ny.rustdesk.com"/"'"${ID_SERVER}"'"/g' "$CFG"
+          sed -i "s|key = \".*\"|key = \"${SERVER_KEY}\"|" "$CFG" 2>/dev/null || true
 
       - name: Patch package name (Android side)
         run: |

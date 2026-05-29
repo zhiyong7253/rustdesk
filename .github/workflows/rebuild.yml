@@ -118,21 +118,11 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
           echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          # List available NDK
-          echo "Available NDK:"
-          ls $ANDROID_SDK_ROOT/ndk/ 2>/dev/null || echo "No NDK found"
-          # Install NDK using sdkmanager (show output)
-          echo "Installing NDK..."
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973" 2>&1 || true
-          # Find NDK path
+          # Install NDK r28c (same as official CI)
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;28.0.13004108"
           NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | head -1)
-          if [ -n "$NDK_PATH" ]; then
-            echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
-            echo "NDK: $NDK_PATH"
-            ls $NDK_PATH/toolchains/llvm/prebuilt/
-          else
-            echo "WARNING: No NDK found!"
-          fi
+          echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+          echo "NDK installed at: $NDK_PATH"
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -153,12 +143,15 @@ jobs:
 
       - name: Setup vcpkg
         run: |
-          git clone --depth 100 https://github.com/Microsoft/vcpkg.git $HOME/vcpkg
+          # Use the exact vcpkg commit ID that RustDesk 1.4.6 expects
+          VCPKG_COMMIT_ID="120deac3062162151622ca4860575a33844ba10b"
+          git clone https://github.com/Microsoft/vcpkg.git $HOME/vcpkg
           cd $HOME/vcpkg
-          git fetch --unshallow 2>/dev/null || true
+          git checkout $VCPKG_COMMIT_ID
           ./bootstrap-vcpkg.sh -disableMetrics
           echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
           echo "$HOME/vcpkg" >> $GITHUB_PATH
+          echo "VCPKG_ROOT=$HOME/vcpkg"
 
       - name: Flutter pub get
         working-directory: flutter

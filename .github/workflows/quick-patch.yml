@@ -49,25 +49,26 @@ jobs:
 
       - name: Sign with apksigner (v1+v2+v3)
         run: |
+          cd $GITHUB_WORKSPACE
           # Generate keystore
           keytool -genkey -v -keystore release.keystore -alias zhiyong -keyalg RSA -keysize 2048 -validity 10000 -storepass zhiyong -keypass zhiyong -dname "CN=zhiyong7253, O=zhiyong, C=CN"
-          # Install Android SDK build-tools for apksigner+zipalign
+          # Install build-tools for apksigner
           mkdir -p $HOME/android-sdk
           cd /tmp
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip -d $HOME/android-sdk/cmdline-tools/
           mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
-          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" 2>&1 | tail -3
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" 2>&1 | tail -3 || true
+          cd $GITHUB_WORKSPACE
           SDK_DIR=$HOME/android-sdk
-          APKSIGNER=$(find $SDK_DIR -name "apksigner" -type f | head -1)
-          ZIPALIGN=$(find $SDK_DIR -name "zipalign" -type f | head -1)
-          
-          # Zipalign first (before signing!)
+          APKSIGNER=$(find $SDK_DIR -name apksigner -type f | head -1)
+          ZIPALIGN=$(find $SDK_DIR -name zipalign -type f | head -1)
+          echo "apksigner: $APKSIGNER"
+          echo "zipalign: $ZIPALIGN"
+          # Zipalign
           $ZIPALIGN -v -p 4 unsigned.apk aligned.apk 2>&1 | tail -2
-          
-          # Sign with apksigner (handles v1+v2+v3 automatically)
-          $APKSIGNER sign --ks release.keystore --ks-pass pass:zhiyong --ks-key-alias zhiyong aligned.apk
-          
+          # Sign
+          $APKSIGNER sign --ks $GITHUB_WORKSPACE/release.keystore --ks-pass pass:zhiyong --ks-key-alias zhiyong aligned.apk
           cp aligned.apk zhiyong7253-remote-${{ inputs.arch }}.apk
           echo "Signing complete"
 
